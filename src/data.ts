@@ -9,9 +9,7 @@ export const INITIAL_ROOMS: Room[] = [
     capacity: 50,
     equipment: ['Projector', 'Whiteboard', 'Microphone'],
     isBlocked: false,
-    bookings: [
-      { id: 'b1', start: 600, end: 660 }, // 10:00 - 11:00 AM
-    ],
+    bookings: [{ id: 'b1', start: 600, end: 660 }], // 10:00 - 11:00 AM
   },
   {
     id: 'room-beta',
@@ -19,9 +17,7 @@ export const INITIAL_ROOMS: Room[] = [
     capacity: 20,
     equipment: ['Whiteboard', 'TV Screen'],
     isBlocked: false,
-    bookings: [
-      { id: 'b2', start: 600, end: 720 },  // 10:00 - 12:00 PM
-    ],
+    bookings: [{ id: 'b2', start: 600, end: 720 }], // 10:00 - 12:00 PM
   },
   {
     id: 'room-gamma',

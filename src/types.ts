@@ -10,7 +10,7 @@ export interface Room {
   capacity: number;
   equipment: string[];
   isBlocked: boolean;
-  bookings: Booking[]; // Room's unique bookings array
+  bookings: Booking[]; // Unique per-room booking catalog
 }
 
 export interface ValidationResult {
