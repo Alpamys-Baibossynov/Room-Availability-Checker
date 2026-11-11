@@ -19,7 +19,7 @@ export const RoomChecker: React.FC<RoomCheckerProps> = ({
   const [startMin, setStartMin] = useState<number>(600); // 10:00 AM default
   const [endMin, setEndMin] = useState<number>(660);     // 11:00 AM default
 
-  // F5: Room switching and instant reactive availability refresh
+  // F5: Room switching and asynchronous refresh state management
   const [selectedRoomId, setSelectedRoomId] = useState<string>(rooms[0]?.id || '');
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [activeValidation, setActiveValidation] = useState<{ isValid: boolean; error?: string } | null>(null);
@@ -33,10 +33,10 @@ export const RoomChecker: React.FC<RoomCheckerProps> = ({
     end: endMin,
   };
 
-  // Compute matching rooms dynamically (F1, F2, F3)
+  // Compute matching rooms dynamically (F1, F2, F3, F4 Empty State)
   const matchingRooms = filterRooms(rooms, filters, currentTime);
 
-  // F5: Dynamic availability re-check when switching rooms or adjusting filter parameters
+  // F5: Dynamic async refresh triggered on room selection switch or filter updates
   useEffect(() => {
     setIsRefreshing(true);
     const timer = setTimeout(() => {
@@ -46,7 +46,7 @@ export const RoomChecker: React.FC<RoomCheckerProps> = ({
         setActiveValidation(res);
       }
       setIsRefreshing(false);
-    }, 150); // simulated async refresh lag
+    }, 150);
 
     return () => clearTimeout(timer);
   }, [selectedRoomId, startMin, endMin, attendees, selectedEquip, rooms, currentTime]);
@@ -126,16 +126,16 @@ export const RoomChecker: React.FC<RoomCheckerProps> = ({
         </div>
       </div>
 
-      {/* Main Catalog & Room Status Section */}
+      {/* Main Content Area: Catalog & Selected Room Status */}
       <div className="md:col-span-2 space-y-6">
         <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
           <h2 className="text-lg font-bold mb-4 text-gray-800">Room Catalog</h2>
           
-          {/* F4: Explicit Empty State */}
+          {/* F4: Explicit Empty State Render */}
           {matchingRooms.length === 0 ? (
             <div className="p-8 text-center bg-gray-50 rounded border border-dashed border-gray-300">
               <p className="text-gray-600 font-medium">No rooms match your filter criteria.</p>
-              <p className="text-xs text-gray-400 mt-1">Try relaxing attendee limits, equipment requirements, or adjusting time windows.</p>
+              <p className="text-xs text-gray-400 mt-1">Try relaxing capacity limits, equipment filters, or adjusting time windows.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
