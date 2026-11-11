@@ -1,8 +1,9 @@
 import { Room, ValidationResult, FilterOptions } from './types';
 
 /**
- * Validates a candidate booking against a room's specific bookings and core constraints (F1-F3).
- * Implemented as a pure function without data mutation.
+ * AC1-AC5: Core pure validation logic.
+ * Enforces time interval bounds, demo clock constraints, 120-minute ceilings,
+ * blocked guards, and overlapping interval checks (touching endpoints permitted).
  */
 export function validateBooking(
   room: Room,
@@ -10,7 +11,7 @@ export function validateBooking(
   candidateEnd: number,
   currentTime: number
 ): ValidationResult {
-  // Interval boundary validation & demo clock check
+  // AC1: Interval range & demo clock boundary validation
   if (candidateStart < 0 || candidateEnd > 1440 || candidateStart >= candidateEnd) {
     return { isValid: false, error: 'Interval bounds must satisfy 0 <= start < end <= 1440.' };
   }
@@ -18,23 +19,23 @@ export function validateBooking(
     return { isValid: false, error: 'Start time must be strictly after the current demo clock.' };
   }
 
-  // Maximum duration ceiling (120 minutes)
+  // AC2: Maximum duration ceiling (120 minutes)
   if (candidateEnd - candidateStart > 120) {
     return { isValid: false, error: 'Booking duration must not exceed 120 minutes.' };
   }
 
-  // F3: Blocked status restriction
+  // AC3 & F3: Blocked room restriction guard
   if (room.isBlocked) {
     return { isValid: false, error: 'Selected room is programmatically blocked from booking.' };
   }
 
-  // Overlap evaluation against the room's unique bookings array (touching endpoints permitted)
+  // AC4: Overlap evaluation with touching endpoints explicitly permitted
   for (const b of room.bookings) {
     const hasOverlap = !(candidateEnd <= b.start || candidateStart >= b.end);
     if (hasOverlap) {
       return { 
         isValid: false, 
-        error: `Conflict with existing booking (${formatTime(b.start)} - ${formatTime(b.end)}).` 
+        error: `Conflict detected with existing booking (${formatTime(b.start)} - ${formatTime(b.end)}).` 
       };
     }
   }
@@ -43,7 +44,7 @@ export function validateBooking(
 }
 
 /**
- * Filters the room catalog based on capacity (F1), equipment (F2), and blocked status (F3).
+ * F1-F3: Filters the room catalog based on capacity, equipment, and blocked status.
  */
 export function filterRooms(
   rooms: Room[],
@@ -51,24 +52,27 @@ export function filterRooms(
   currentTime: number
 ): Room[] {
   return rooms.filter(room => {
-    // F3: Exclude blocked rooms from availability results
+    // F3: Exclude blocked rooms from search results
     if (room.isBlocked) return false;
 
     // F1: Capacity filter (capacity >= requested attendees)
     if (room.capacity < filters.attendees) return false;
 
-    // F2: Equipment filter (room must possess ALL user-required equipment)
+    // F2: Equipment filter (room must possess ALL user-specified required equipment)
     const hasAllEquipment = filters.requiredEquipment.every(reqEq =>
       room.equipment.includes(reqEq)
     );
     if (!hasAllEquipment) return false;
 
-    // Evaluate interval availability using room's unique bookings
+    // Interval availability check against room's unique bookings
     const validation = validateBooking(room, filters.start, filters.end, currentTime);
     return validation.isValid;
   });
 }
 
+/**
+ * Utility helper to format minutes after midnight to HH:MM string.
+ */
 export function formatTime(minutes: number): string {
   const hrs = Math.floor(minutes / 60).toString().padStart(2, '0');
   const mins = (minutes % 60).toString().padStart(2, '0');
