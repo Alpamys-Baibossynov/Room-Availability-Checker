@@ -30,12 +30,13 @@ export function validateBooking(
   }
 
   // AC4: Overlap evaluation with touching endpoints explicitly permitted
+  // Intervals overlap if and only if candidate starts before existing ends AND ends after existing starts.
   for (const b of room.bookings) {
-    const hasOverlap = !(candidateEnd <= b.start || candidateStart >= b.end);
+    const hasOverlap = candidateStart < b.end && candidateEnd > b.start;
     if (hasOverlap) {
       return { 
         isValid: false, 
-        error: `Conflict detected with existing booking (${formatTime(b.start)} - ${formatTime(b.end)}).` 
+        error: `Conflict with existing booking (${formatTime(b.start)} - ${formatTime(b.end)}).` 
       };
     }
   }
