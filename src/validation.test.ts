@@ -78,7 +78,7 @@ describe('Smart Campus Room Availability - Validation & Filtering Test Suite', (
     };
 
     // Touching endpoint: ending exactly when existing starts (600) -> Allowed
-    const touchingBefore = validateBooking(roomWithBooking, 540, 600, DEMO_CURRENT_TIME);
+  const touchingBefore = validateBooking(roomWithBooking, 550, 600, DEMO_CURRENT_TIME);
     expect(touchingBefore.isValid).toBe(true);
 
     // Touching endpoint: starting exactly when existing ends (660) -> Allowed
