@@ -1,4 +1,4 @@
-import RoomChecker from './RoomChecker';
+import { RoomChecker } from './RoomChecker';
 
 function App() {
   return <RoomChecker />;
