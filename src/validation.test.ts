@@ -1,137 +1,136 @@
 import { describe, test, expect } from 'vitest';
-import { checkAvailability } from './validation';
-import type { Room, Booking } from './types';
+import { validateBooking, filterRooms, formatTime } from './validation';
+import type { Room } from './types';
 
-const defaultRoom: Room = {
+const baseRoom: Room = {
   id: 'room-1',
   name: 'Alpha Room',
-  building: 'Building A',
   capacity: 10,
-  blocked: false,
+  equipment: ['Projector', 'Whiteboard'],
+  isBlocked: false,
+  bookings: [{ id: 'b1', start: 600, end: 660 }], // 10:00 - 11:00 AM
 };
 
-const defaultBookings: Booking[] = [
-  { id: 'b1', roomId: 'room-1', bookedBy: 'Alice', start: 600, end: 660 },
-];
+const NOW = 540; // 09:00
 
-const DEFAULT_NOW = 540; // 09:00
-
-describe('Smart Campus Room Availability Tests (AC1–AC6)', () => {
-  
-  // T01 / AC4: Touching after is allowed
-  test('T01: touching after is available', () => {
-    const bookingsCopy = JSON.parse(JSON.stringify(defaultBookings));
-    const result = checkAvailability(defaultRoom, 660, 720, DEFAULT_NOW, bookingsCopy);
-    expect(result.ok).toBe(true);
-    expect(bookingsCopy).toEqual(defaultBookings); // AC5: data-preservation check
+describe('validateBooking (AC1-AC4)', () => {
+  test('touching after existing booking is allowed', () => {
+    const room = { ...baseRoom, bookings: [...baseRoom.bookings] };
+    expect(validateBooking(room, 660, 720, NOW).isValid).toBe(true);
   });
 
-  // T02 / AC1: Starts now or earlier is rejected
-  test('T02: booking starting at current time is rejected', () => {
-    const result = checkAvailability(defaultRoom, 540, 570, DEFAULT_NOW, defaultBookings);
-    expect(result.ok).toBe(false);
+  test('touching before existing booking is allowed', () => {
+    const room = { ...baseRoom, bookings: [...baseRoom.bookings] };
+    expect(validateBooking(room, 570, 600, NOW).isValid).toBe(true);
   });
 
-  // T03 / AC1: Zero duration is rejected
-  test('T03: zero duration booking is rejected', () => {
-    const result = checkAvailability(defaultRoom, 720, 720, DEFAULT_NOW, defaultBookings);
-    expect(result.ok).toBe(false);
+  test('booking starting at current time is rejected', () => {
+    expect(validateBooking(baseRoom, 540, 570, NOW).isValid).toBe(false);
   });
 
-  // T04 / AC1: Reversed interval is rejected
-  test('T04: reversed interval is rejected', () => {
-    const result = checkAvailability(defaultRoom, 750, 720, DEFAULT_NOW, defaultBookings);
-    expect(result.ok).toBe(false);
+  test('zero duration booking is rejected', () => {
+    expect(validateBooking(baseRoom, 720, 720, NOW).isValid).toBe(false);
   });
 
-  // T05 / AC1: Past day end (> 1440) is rejected
-  test('T05: interval exceeding day boundary is rejected', () => {
-    const result = checkAvailability(defaultRoom, 1380, 1441, DEFAULT_NOW, defaultBookings);
-    expect(result.ok).toBe(false);
+  test('reversed interval is rejected', () => {
+    expect(validateBooking(baseRoom, 750, 720, NOW).isValid).toBe(false);
   });
 
-  // T06 / AC2: Exactly 120 minutes is allowed
-  test('T06: exactly 120 minutes duration is allowed', () => {
-    const result = checkAvailability(defaultRoom, 720, 840, DEFAULT_NOW, defaultBookings);
-    expect(result.ok).toBe(true);
+  test('interval exceeding day boundary is rejected', () => {
+    expect(validateBooking(baseRoom, 1380, 1441, NOW).isValid).toBe(false);
   });
 
-  // T07 / AC2 & AC6: 121 minutes duration is rejected with feedback
-  test('T07: duration longer than 120 minutes is rejected', () => {
-    const result = checkAvailability(defaultRoom, 720, 841, DEFAULT_NOW, defaultBookings);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.reason).toContain('cannot be longer than 120 minutes');
-    }
+  test('negative start time is rejected', () => {
+    expect(validateBooking(baseRoom, -10, 60, NOW).isValid).toBe(false);
   });
 
-  // T08 / AC4: Touching before is allowed
-  test('T08: touching before existing booking is allowed', () => {
-    const result = checkAvailability(defaultRoom, 570, 600, DEFAULT_NOW, defaultBookings);
-    expect(result.ok).toBe(true);
+  test('exactly 120 minutes is allowed', () => {
+    expect(validateBooking(baseRoom, 720, 840, NOW).isValid).toBe(true);
   });
 
-  // T09 / AC4: Partial overlap is rejected
-  test('T09: partial overlap with existing booking is rejected', () => {
-    const result = checkAvailability(defaultRoom, 630, 690, DEFAULT_NOW, defaultBookings);
-    expect(result.ok).toBe(false);
+  test('duration longer than 120 minutes is rejected', () => {
+    const res = validateBooking(baseRoom, 720, 841, NOW);
+    expect(res.isValid).toBe(false);
+    expect(res.error).toContain('120 minutes');
   });
 
-  // T10 / AC4: Contains existing booking is rejected
-  test('T10: interval containing an existing booking is rejected', () => {
-    const result = checkAvailability(defaultRoom, 570, 690, DEFAULT_NOW, defaultBookings);
-    expect(result.ok).toBe(false);
+  test('partial overlap is rejected', () => {
+    expect(validateBooking(baseRoom, 630, 690, NOW).isValid).toBe(false);
   });
 
-  // T11 / AC4: Completely inside existing booking is rejected
-  test('T11: interval completely inside an existing booking is rejected', () => {
-    const result = checkAvailability(defaultRoom, 615, 645, DEFAULT_NOW, defaultBookings);
-    expect(result.ok).toBe(false);
+  test('interval containing an existing booking is rejected', () => {
+    expect(validateBooking(baseRoom, 570, 690, NOW).isValid).toBe(false);
   });
 
-  // T12 / AC4: Identical interval is rejected
-  test('T12: identical interval to existing booking is rejected', () => {
-    const result = checkAvailability(defaultRoom, 600, 660, DEFAULT_NOW, defaultBookings);
-    expect(result.ok).toBe(false);
+  test('interval inside an existing booking is rejected', () => {
+    expect(validateBooking(baseRoom, 615, 645, NOW).isValid).toBe(false);
   });
 
-  // T13 / AC3 & AC6: Blocked room is rejected with feedback
-  test('T13: blocked room is rejected', () => {
-    const blockedRoom: Room = { ...defaultRoom, blocked: true };
-    const result = checkAvailability(blockedRoom, 660, 720, DEFAULT_NOW, defaultBookings);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.reason).toContain('currently blocked');
-    }
+  test('identical interval is rejected', () => {
+    expect(validateBooking(baseRoom, 600, 660, NOW).isValid).toBe(false);
   });
 
-  // T14 / AC4: Empty booking list is allowed
-  test('T14: booking request with empty bookings list is allowed', () => {
-    const result = checkAvailability(defaultRoom, 660, 720, DEFAULT_NOW, []);
-    expect(result.ok).toBe(true);
+  test('blocked room is rejected with feedback', () => {
+    const res = validateBooking({ ...baseRoom, isBlocked: true }, 660, 720, NOW);
+    expect(res.isValid).toBe(false);
+    expect(res.error).toContain('blocked');
   });
 
-  // T15 (Custom 1) / AC1: Negative start time is rejected
-  test('T15: negative start time is rejected', () => {
-    const result = checkAvailability(defaultRoom, -10, 60, DEFAULT_NOW, defaultBookings);
-    expect(result.ok).toBe(false);
+  test('empty bookings list is allowed', () => {
+    expect(validateBooking({ ...baseRoom, bookings: [] }, 660, 720, NOW).isValid).toBe(true);
   });
 
-  // T16 (Custom 2) / AC4: Conflict with a secondary booking in the list is rejected
-  test('T16: conflict with second booking in list is rejected', () => {
-    const multipleBookings: Booking[] = [
-      { id: 'b1', roomId: 'room-1', bookedBy: 'Alice', start: 600, end: 660 },
-      { id: 'b2', roomId: 'room-1', bookedBy: 'Bob', start: 700, end: 760 },
-    ];
-    const result = checkAvailability(defaultRoom, 720, 780, DEFAULT_NOW, multipleBookings);
-    expect(result.ok).toBe(false);
+  test('conflict with a second booking is rejected', () => {
+    const room: Room = {
+      ...baseRoom,
+      bookings: [
+        { id: 'b1', start: 600, end: 660 },
+        { id: 'b2', start: 700, end: 760 },
+      ],
+    };
+    expect(validateBooking(room, 720, 780, NOW).isValid).toBe(false);
   });
 
-  // T17 (AC5 Data-preservation test)
-  test('T17: existing bookings data is preserved unchanged after check', () => {
-    const bookingsSnapshot = JSON.stringify(defaultBookings);
-    checkAvailability(defaultRoom, 660, 720, DEFAULT_NOW, defaultBookings);
-    expect(JSON.stringify(defaultBookings)).toBe(bookingsSnapshot);
+  test('validateBooking does not mutate room.bookings', () => {
+    const room = { ...baseRoom, bookings: [{ id: 'b1', start: 600, end: 660 }] };
+    const snapshot = JSON.stringify(room.bookings);
+    validateBooking(room, 660, 720, NOW);
+    expect(JSON.stringify(room.bookings)).toBe(snapshot);
+  });
+});
+
+describe('filterRooms (F1-F3)', () => {
+  test('excludes blocked rooms', () => {
+    const rooms = [baseRoom, { ...baseRoom, id: 'room-2', isBlocked: true }];
+    const filters = { attendees: 5, requiredEquipment: [], start: 660, end: 720 };
+    expect(filterRooms(rooms, filters, NOW)).toHaveLength(1);
+    expect(filterRooms(rooms, filters, NOW)[0].id).toBe('room-1');
   });
 
+  test('filters by capacity', () => {
+    const rooms = [baseRoom, { ...baseRoom, id: 'room-2', capacity: 2 }];
+    const filters = { attendees: 5, requiredEquipment: [], start: 660, end: 720 };
+    expect(filterRooms(rooms, filters, NOW)).toHaveLength(1);
+  });
+
+  test('filters by required equipment', () => {
+    const rooms = [baseRoom, { ...baseRoom, id: 'room-2', equipment: ['Whiteboard'] }];
+    const filters = { attendees: 5, requiredEquipment: ['Projector'], start: 660, end: 720 };
+    expect(filterRooms(rooms, filters, NOW)).toHaveLength(1);
+    expect(filterRooms(rooms, filters, NOW)[0].id).toBe('room-1');
+  });
+
+  test('excludes rooms with a conflicting booking', () => {
+    const rooms = [baseRoom];
+    const filters = { attendees: 1, requiredEquipment: [], start: 600, end: 660 };
+    expect(filterRooms(rooms, filters, NOW)).toHaveLength(0);
+  });
+});
+
+describe('formatTime', () => {
+  test('formats minutes since midnight as HH:MM', () => {
+    expect(formatTime(540)).toBe('09:00');
+    expect(formatTime(0)).toBe('00:00');
+    expect(formatTime(720)).toBe('12:00');
+  });
 });
