@@ -1,21 +1,42 @@
-import type { Room, Booking } from './types';
+import { Room } from './types';
 
-export const ROOMS: Room[] = [
-  { id: 'r1', name: 'Whitfield 101',  building: 'Whitfield Hall',  capacity: 40, blocked: false, imageQuery: 'university lecture hall' },
-  { id: 'r2', name: 'Marston 204',    building: 'Marston Hall',    capacity: 25, blocked: false, imageQuery: 'modern classroom' },
-  { id: 'r3', name: 'Keller 310',     building: 'Keller Center',   capacity: 15, blocked: true,  imageQuery: 'computer lab' },
-  { id: 'r4', name: 'Alden Auditorium', building: 'Alden Hall',     capacity: 120, blocked: false, imageQuery: 'auditorium stage' },
-  { id: 'r5', name: 'Bell Study B',   building: 'Bell Library',     capacity: 8,  blocked: false, imageQuery: 'library study room' },
-];
+export const DEMO_CURRENT_TIME = 540; // 09:00 AM in minutes from midnight
 
-// Current time in minutes from midnight — fictional campus clock for demo
-export const DEMO_CURRENT_MINUTES = 540; // 9:00 AM
-
-export const SAMPLE_BOOKINGS: Booking[] = [
-  { id: 'b1', roomId: 'r1', start: 540,  end: 600,  bookedBy: 'Prof. Haley' },
-  { id: 'b2', roomId: 'r1', start: 720,  end: 780,  bookedBy: 'CS Study Group' },
-  { id: 'b3', roomId: 'r2', start: 600,  end: 660,  bookedBy: 'Tutoring Center' },
-  { id: 'b4', roomId: 'r2', start: 840,  end: 900,  bookedBy: 'Robotics Club' },
-  { id: 'b5', roomId: 'r4', start: 480,  end: 540,  bookedBy: 'Open House' },
-  { id: 'b6', roomId: 'r5', start: 660,  end: 720,  bookedBy: 'Writing Workshop' },
+export const INITIAL_ROOMS: Room[] = [
+  {
+    id: 'room-alpha',
+    name: 'Alpha Lecture Hall',
+    capacity: 50,
+    equipment: ['Projector', 'Whiteboard', 'Microphone'],
+    isBlocked: false,
+    bookings: [
+      { id: 'b1', start: 600, end: 660 }, // 10:00 - 11:00 AM
+    ],
+  },
+  {
+    id: 'room-beta',
+    name: 'Beta Seminar Room',
+    capacity: 20,
+    equipment: ['Whiteboard', 'TV Screen'],
+    isBlocked: false,
+    bookings: [
+      { id: 'b2', start: 600, end: 720 },  // 10:00 - 12:00 PM
+    ],
+  },
+  {
+    id: 'room-gamma',
+    name: 'Gamma Computer Lab',
+    capacity: 15,
+    equipment: ['Computers', 'Projector'],
+    isBlocked: true, // F3: Blocked room guard
+    bookings: [],
+  },
+  {
+    id: 'room-delta',
+    name: 'Delta Conference Hub',
+    capacity: 30,
+    equipment: ['Projector', 'Whiteboard', 'Video Conference'],
+    isBlocked: false,
+    bookings: [],
+  },
 ];

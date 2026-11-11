@@ -1,20 +1,26 @@
+export interface Booking {
+  id: string;
+  start: number; // Minutes after midnight (0 <= start < 1440)
+  end: number;   // Minutes after midnight (0 <= end <= 1440)
+}
+
 export interface Room {
   id: string;
   name: string;
-  building: string;
   capacity: number;
-  blocked: boolean;
-  imageQuery: string;
+  equipment: string[];
+  isBlocked: boolean;
+  bookings: Booking[]; // Room's unique bookings array
 }
 
-export interface Booking {
-  id: string;
-  roomId: string;
-  start: number; // minutes from midnight (0–1440)
-  end: number;   // minutes from midnight (0–1440)
-  bookedBy: string;
+export interface ValidationResult {
+  isValid: boolean;
+  error?: string;
 }
 
-export type ValidationResult =
-  | { ok: true }
-  | { ok: false; reason: string };
+export interface FilterOptions {
+  attendees: number;
+  requiredEquipment: string[];
+  start: number;
+  end: number;
+}
