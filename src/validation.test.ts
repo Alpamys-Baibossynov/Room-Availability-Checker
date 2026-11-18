@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Room, Booking, FilterOptions } from './types';
+import { Room, FilterOptions } from './types';
 import { INITIAL_ROOMS, DEMO_CURRENT_TIME } from './data';
 import { validateBooking, filterRooms } from './validation';
 
