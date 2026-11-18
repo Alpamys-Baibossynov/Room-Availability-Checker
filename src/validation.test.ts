@@ -205,4 +205,123 @@ describe('Smart Campus Room Availability - Validation & Filtering Test Suite', (
     expect(validationB.isValid).toBe(true);
   });
 
+  // --- Focused regression tests (AGENTS.md verification requirements) ---
+
+  // Regression: past time (AC1) — a start at the demo clock itself is not "strictly after", so it must be rejected.
+  it('Regression AC1: Rejects a request starting exactly at the demo current time (past/now is not bookable)', () => {
+    const room: Room = {
+      id: 'r-past',
+      name: 'Past Time Room',
+      capacity: 30,
+      equipment: [],
+      isBlocked: false,
+      bookings: []
+    };
+
+    // 540 == DEMO_CURRENT_TIME, so the request is not in the future -> Rejected
+    const result = validateBooking(room, 540, 600, DEMO_CURRENT_TIME);
+    expect(result.isValid).toBe(false);
+    expect(result.error).toContain('Start time must be strictly after the current demo clock.');
+  });
+
+  // Regression: reversed interval (AC1) — start >= end violates the bounds invariant, so it must be rejected.
+  it('Regression AC1: Rejects a reversed interval where start >= end', () => {
+    const room: Room = {
+      id: 'r-reversed',
+      name: 'Reversed Interval Room',
+      capacity: 30,
+      equipment: [],
+      isBlocked: false,
+      bookings: []
+    };
+
+    // start (700) is greater than end (640) -> Rejected
+    const reversed = validateBooking(room, 700, 640, DEMO_CURRENT_TIME);
+    expect(reversed.isValid).toBe(false);
+    expect(reversed.error).toContain('Interval bounds must satisfy');
+
+    // start equal to end is a zero-length interval, also invalid -> Rejected
+    const zeroLength = validateBooking(room, 700, 700, DEMO_CURRENT_TIME);
+    expect(zeroLength.isValid).toBe(false);
+  });
+
+  // Regression: 121-minute duration (AC2) — one minute over the ceiling must be rejected; 120 must pass.
+  it('Regression AC2: Rejects a 121-minute booking but accepts exactly 120 minutes', () => {
+    const room: Room = {
+      id: 'r-duration',
+      name: 'Duration Boundary Room',
+      capacity: 30,
+      equipment: [],
+      isBlocked: false,
+      bookings: []
+    };
+
+    // 121 minutes (600 to 721) exceeds the 120-minute ceiling -> Rejected
+    const overByOne = validateBooking(room, 600, 721, DEMO_CURRENT_TIME);
+    expect(overByOne.isValid).toBe(false);
+    expect(overByOne.error).toContain('Booking duration must not exceed 120 minutes.');
+
+    // Exactly 120 minutes (600 to 720) is at the ceiling, not over it -> Allowed
+    const exactlyMax = validateBooking(room, 600, 720, DEMO_CURRENT_TIME);
+    expect(exactlyMax.isValid).toBe(true);
+  });
+
+  // Regression: blocked room (AC3) — fixture blocked room must be rejected even in an otherwise free window.
+  it('Regression AC3: Rejects booking the fixture blocked room (Gamma) despite an open schedule', () => {
+    // Gamma has no bookings, so only isBlocked can disqualify it -> Rejected
+    const gamma = INITIAL_ROOMS.find(r => r.id === 'room-gamma');
+    expect(gamma).toBeDefined();
+    const result = validateBooking(gamma!, 700, 760, DEMO_CURRENT_TIME);
+    expect(result.isValid).toBe(false);
+    expect(result.error).toContain('Selected room is programmatically blocked');
+  });
+
+  // Regression: overlap vs touching endpoints (AC4) — partial overlaps are rejected in both directions; exact endpoint contact is allowed.
+  it('Regression AC4: Rejects partial overlaps on either side while allowing exact endpoint-touching bookings', () => {
+    const room: Room = {
+      id: 'r-overlap',
+      name: 'Overlap Regression Room',
+      capacity: 30,
+      equipment: [],
+      isBlocked: false,
+      bookings: [{ id: 'b1', start: 600, end: 660 }]
+    };
+
+    // Candidate starts inside the existing booking and ends after it -> Rejected
+    const straddleEnd = validateBooking(room, 630, 690, DEMO_CURRENT_TIME);
+    expect(straddleEnd.isValid).toBe(false);
+    expect(straddleEnd.error).toContain('Conflict with existing booking');
+
+    // Candidate starts before the existing booking and ends inside it -> Rejected
+    const straddleStart = validateBooking(room, 570, 630, DEMO_CURRENT_TIME);
+    expect(straddleStart.isValid).toBe(false);
+
+    // Candidate fully contains the existing booking -> Rejected
+    const enveloping = validateBooking(room, 540, 720, DEMO_CURRENT_TIME);
+    expect(enveloping.isValid).toBe(false);
+
+    // Candidate ends exactly at 600, where the existing booking starts (touching) -> Allowed
+    const touchingBefore = validateBooking(room, 570, 600, DEMO_CURRENT_TIME);
+    expect(touchingBefore.isValid).toBe(true);
+
+    // Candidate starts exactly at 660, where the existing booking ends (touching) -> Allowed
+    const touchingAfter = validateBooking(room, 660, 720, DEMO_CURRENT_TIME);
+    expect(touchingAfter.isValid).toBe(true);
+  });
+
+  // Regression: unchanged fixtures (AC5/AC6) — running validation and filters over INITIAL_ROOMS must leave every room and booking object identical.
+  it('Regression AC5/AC6: Leaves INITIAL_ROOMS fixture data completely unmutated after validation and filtering', () => {
+    const snapshot = JSON.parse(JSON.stringify(INITIAL_ROOMS));
+
+    INITIAL_ROOMS.forEach(room => validateBooking(room, 700, 760, DEMO_CURRENT_TIME));
+    filterRooms(INITIAL_ROOMS, {
+      attendees: 10,
+      requiredEquipment: ['Projector'],
+      start: 700,
+      end: 760
+    }, DEMO_CURRENT_TIME);
+
+    expect(INITIAL_ROOMS).toEqual(snapshot);
+  });
+
 });
