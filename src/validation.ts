@@ -94,6 +94,15 @@ export function filterRooms(
   });
 }
 
+// R1: keeps the selection only if it is still visible in the filtered list,
+// otherwise falls back to the first match (or empty when nothing matches).
+export function reconcileSelectedRoomId(
+  selectedRoomId: string,
+  matchingRoomIds: string[]
+): string {
+  return matchingRoomIds.includes(selectedRoomId) ? selectedRoomId : matchingRoomIds[0] ?? '';
+}
+
 export function formatTime(minutes: number): string {
   const hrs = Math.floor(minutes / 60).toString().padStart(2, '0');
   const mins = (minutes % 60).toString().padStart(2, '0');

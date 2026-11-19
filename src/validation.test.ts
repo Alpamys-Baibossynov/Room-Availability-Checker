@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Room, FilterOptions } from './types';
 import { INITIAL_ROOMS, DEMO_CURRENT_TIME } from './data';
-import { validateBooking, filterRooms } from './validation';
+import { validateBooking, filterRooms, reconcileSelectedRoomId } from './validation';
 
 describe('Smart Campus Room Availability - Validation & Filtering Test Suite', () => {
   
@@ -322,6 +322,22 @@ describe('Smart Campus Room Availability - Validation & Filtering Test Suite', (
     }, DEMO_CURRENT_TIME);
 
     expect(INITIAL_ROOMS).toEqual(snapshot);
+  });
+
+  // Regression: R1 (stale selection) — a selected room that filters exclude must be
+  // replaced by the first remaining match, and an empty result clears the selection.
+  it('R1: Replaces a stale selectedRoomId with the first matching room, or empty string when no rooms match', () => {
+    // Selection still visible -> kept as-is
+    expect(reconcileSelectedRoomId('room-alpha', ['room-alpha', 'room-delta'])).toBe('room-alpha');
+
+    // Selection filtered out (e.g. capacity/equipment no longer match) -> first match wins
+    expect(reconcileSelectedRoomId('room-beta', ['room-alpha', 'room-delta'])).toBe('room-alpha');
+
+    // No rooms match the filters -> selection cleared
+    expect(reconcileSelectedRoomId('room-alpha', [])).toBe('');
+
+    // No prior selection with matches -> falls back to first match
+    expect(reconcileSelectedRoomId('', ['room-delta'])).toBe('room-delta');
   });
 
 });
