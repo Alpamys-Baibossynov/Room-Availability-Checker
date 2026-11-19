@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Room, FilterOptions } from './types';
-import { filterRooms, validateBooking, formatTime } from './validation';
+import { filterRooms, validateBooking, formatTime, reconcileSelectedRoomId } from './validation';
 
 interface RoomCheckerProps {
   rooms: Room[];
@@ -24,7 +24,8 @@ export const RoomChecker: React.FC<RoomCheckerProps> = ({
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [activeValidation, setActiveValidation] = useState<{ isValid: boolean; error?: string } | null>(null);
 
-  const availableEquipmentList = ['Projector', 'Whiteboard', 'Microphone', 'TV Screen', 'Computers', 'Video Conference'];
+  // R6: derive the equipment facet list from actual room data
+  const availableEquipmentList = Array.from(new Set(rooms.flatMap(room => room.equipment)));
 
   const filters: FilterOptions = {
     attendees,
@@ -36,20 +37,25 @@ export const RoomChecker: React.FC<RoomCheckerProps> = ({
   // Compute matching rooms dynamically (F1, F2, F3, F4 Empty State)
   const matchingRooms = filterRooms(rooms, filters, currentTime);
 
+  // R1: if the selected room is filtered out, fall back to the first match (or none)
+  const effectiveSelectedRoomId = reconcileSelectedRoomId(selectedRoomId, matchingRooms.map(r => r.id));
+
   // F5: Dynamic async refresh triggered on room selection switch or filter updates
   useEffect(() => {
     setIsRefreshing(true);
     const timer = setTimeout(() => {
-      const currentRoom = rooms.find(r => r.id === selectedRoomId);
+      const currentRoom = rooms.find(r => r.id === effectiveSelectedRoomId);
       if (currentRoom) {
         const res = validateBooking(currentRoom, startMin, endMin, currentTime);
         setActiveValidation(res);
+      } else {
+        setActiveValidation(null);
       }
       setIsRefreshing(false);
     }, 150);
 
     return () => clearTimeout(timer);
-  }, [selectedRoomId, startMin, endMin, attendees, selectedEquip, rooms, currentTime]);
+  }, [effectiveSelectedRoomId, startMin, endMin, attendees, selectedEquip, rooms, currentTime]);
 
   const toggleEquipment = (eq: string) => {
     setSelectedEquip(prev =>
@@ -59,7 +65,7 @@ export const RoomChecker: React.FC<RoomCheckerProps> = ({
 
   const handleBookingConfirm = () => {
     if (activeValidation?.isValid) {
-      onBookRoom(selectedRoomId, startMin, endMin);
+      onBookRoom(effectiveSelectedRoomId, startMin, endMin);
       alert('Room successfully booked!');
     }
   };
@@ -144,7 +150,7 @@ export const RoomChecker: React.FC<RoomCheckerProps> = ({
                   key={room.id}
                   onClick={() => setSelectedRoomId(room.id)}
                   className={`p-4 rounded border cursor-pointer transition-all ${
-                    selectedRoomId === room.id ? 'border-blue-500 bg-blue-50 shadow-sm' : 'border-gray-200 hover:bg-gray-50'
+                    effectiveSelectedRoomId === room.id ? 'border-blue-500 bg-blue-50 shadow-sm' : 'border-gray-200 hover:bg-gray-50'
                   }`}
                 >
                   <div className="flex justify-between items-start">
@@ -172,7 +178,7 @@ export const RoomChecker: React.FC<RoomCheckerProps> = ({
           ) : (
             <div>
               <p className="text-sm text-gray-700 mb-2">
-                Active Selection: <span className="font-semibold">{rooms.find(r => r.id === selectedRoomId)?.name || 'None'}</span>
+                Active Selection: <span className="font-semibold">{rooms.find(r => r.id === effectiveSelectedRoomId)?.name || 'None'}</span>
               </p>
               {activeValidation?.isValid ? (
                 <div className="p-3 bg-green-50 border border-green-200 text-green-700 rounded text-sm flex justify-between items-center">
