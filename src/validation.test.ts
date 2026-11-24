@@ -121,9 +121,12 @@ describe('Smart Campus Room Availability - Validation & Filtering Test Suite', (
     };
 
     const results = filterRooms(INITIAL_ROOMS, filters, DEMO_CURRENT_TIME);
-    // Alpha has cap 50, Delta has cap 30. Beta (20) and Gamma (15, blocked) should be excluded.
+    // Alpha has cap 50 and is the only room; it must satisfy attendees = 35.
     expect(results.some(r => r.id === 'room-alpha')).toBe(true);
-    expect(results.some(r => r.id === 'room-delta')).toBe(false); // Delta has capacity 30 (< 35)
+
+    // Rooms below the attendee requirement are excluded: 60 exceeds Alpha's cap 50.
+    const impossible: FilterOptions = { ...filters, attendees: 60 };
+    expect(filterRooms(INITIAL_ROOMS, impossible, DEMO_CURRENT_TIME)).toEqual([]);
   });
 
   // Test 7: F2 - Equipment Matching (ALL required items present)
@@ -141,22 +144,35 @@ describe('Smart Campus Room Availability - Validation & Filtering Test Suite', (
       expect(r.equipment).toContain('Projector');
       expect(r.equipment).toContain('Whiteboard');
     });
-    // Beta lacks Projector, Gamma lacks Whiteboard (and is blocked)
-    expect(results.some(r => r.id === 'room-beta')).toBe(false);
+    // Alpha has both, so it is the sole matching room in the trimmed catalog.
+    expect(results.map(r => r.id)).toEqual(['room-alpha']);
   });
 
   // Test 8: F3 - Blocked Room Status Guard in Search Filters
   it('F3: Excludes blocked rooms from search results regardless of capacity and equipment match', () => {
+    const blockedRoom: Room = {
+      id: 'r-blocked',
+      name: 'Under Maintenance Lab',
+      capacity: 50,
+      equipment: ['Projector'],
+      isBlocked: true,
+      bookings: []
+    };
+    const rooms = [...INITIAL_ROOMS, blockedRoom];
+
     const filters: FilterOptions = {
-      attendees: 5, // Gamma has capacity 15, matching equipment (Computers, Projector)
-      requiredEquipment: ['Computers'],
+      attendees: 5,
+      requiredEquipment: [],
       start: 700,
       end: 760
     };
 
-    const results = filterRooms(INITIAL_ROOMS, filters, DEMO_CURRENT_TIME);
-    // Gamma is blocked (isBlocked: true), so it must never appear in available results
-    expect(results.some(r => r.id === 'room-gamma')).toBe(false);
+    const results = filterRooms(rooms, filters, DEMO_CURRENT_TIME);
+    // The blocked room (isBlocked: true) must never appear in available results
+    expect(results.some(r => r.isBlocked)).toBe(false);
+    expect(results.some(r => r.id === 'r-blocked')).toBe(false);
+    // The available room still matches
+    expect(results.some(r => r.id === 'room-alpha')).toBe(true);
   });
 
   // Test 9: F4 - Empty State Handling (No matching rooms)
@@ -266,12 +282,18 @@ describe('Smart Campus Room Availability - Validation & Filtering Test Suite', (
     expect(exactlyMax.isValid).toBe(true);
   });
 
-  // Regression: blocked room (AC3) — fixture blocked room must be rejected even in an otherwise free window.
-  it('Regression AC3: Rejects booking the fixture blocked room (Gamma) despite an open schedule', () => {
-    // Gamma has no bookings, so only isBlocked can disqualify it -> Rejected
-    const gamma = INITIAL_ROOMS.find(r => r.id === 'room-gamma');
-    expect(gamma).toBeDefined();
-    const result = validateBooking(gamma!, 700, 760, DEMO_CURRENT_TIME);
+  // Regression: blocked room (AC3) — a blocked room must be rejected even in an otherwise free schedule.
+  it('Regression AC3: Rejects booking a blocked room despite an open schedule', () => {
+    // No bookings, so only isBlocked can disqualify it -> Rejected
+    const blocked: Room = {
+      id: 'r-blocked',
+      name: 'Under Maintenance Lab',
+      capacity: 50,
+      equipment: [],
+      isBlocked: true,
+      bookings: []
+    };
+    const result = validateBooking(blocked, 700, 760, DEMO_CURRENT_TIME);
     expect(result.isValid).toBe(false);
     expect(result.error).toContain('Selected room is programmatically blocked');
   });
@@ -328,16 +350,16 @@ describe('Smart Campus Room Availability - Validation & Filtering Test Suite', (
   // replaced by the first remaining match, and an empty result clears the selection.
   it('R1: Replaces a stale selectedRoomId with the first matching room, or empty string when no rooms match', () => {
     // Selection still visible -> kept as-is
-    expect(reconcileSelectedRoomId('room-alpha', ['room-alpha', 'room-delta'])).toBe('room-alpha');
+    expect(reconcileSelectedRoomId('room-alpha', ['room-alpha'])).toBe('room-alpha');
 
     // Selection filtered out (e.g. capacity/equipment no longer match) -> first match wins
-    expect(reconcileSelectedRoomId('room-beta', ['room-alpha', 'room-delta'])).toBe('room-alpha');
+    expect(reconcileSelectedRoomId('room-delta', ['room-alpha'])).toBe('room-alpha');
 
     // No rooms match the filters -> selection cleared
     expect(reconcileSelectedRoomId('room-alpha', [])).toBe('');
 
     // No prior selection with matches -> falls back to first match
-    expect(reconcileSelectedRoomId('', ['room-delta'])).toBe('room-delta');
+    expect(reconcileSelectedRoomId('', ['room-alpha'])).toBe('room-alpha');
   });
 
 });
