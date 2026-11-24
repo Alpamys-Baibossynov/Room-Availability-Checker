@@ -23,21 +23,7 @@ export type ExplanationResult =
   | { ok: true; text: string }
   | { ok: false; error: string };
 
-// The adapter only narrates the structured facts; it never decides availability itself.
-export interface ExplanationAdapter {
-  explain(facts: ExplanationFacts): ExplanationResult;
-}
-
-const REASON_CODES: ReasonCode[] = [
-  'OK',
-  'OUTSIDE_DAY_BOUNDS',
-  'START_NOT_AFTER_CLOCK',
-  'DURATION_EXCEEDS_MAX',
-  'ROOM_BLOCKED',
-  'BOOKING_CONFLICT',
-  'OTHER',
-];
-
+// Narrates the structured facts only; it never decides availability itself.
 const MAX_LABEL_LENGTH = 80;
 
 // Labels are untrusted input: flattened to inert single-line text, never interpreted.
@@ -54,7 +40,8 @@ function isExplanationFacts(value: unknown): value is ExplanationFacts {
     typeof v.startTime === 'number' && Number.isFinite(v.startTime) &&
     typeof v.endTime === 'number' && Number.isFinite(v.endTime) &&
     typeof v.isAvailable === 'boolean' &&
-    typeof v.reasonCode === 'string' && REASON_CODES.includes(v.reasonCode as ReasonCode)
+    typeof v.reasonCode === 'string' &&
+    ['OK', 'OUTSIDE_DAY_BOUNDS', 'START_NOT_AFTER_CLOCK', 'DURATION_EXCEEDS_MAX', 'ROOM_BLOCKED', 'BOOKING_CONFLICT', 'OTHER'].includes(v.reasonCode)
   );
 }
 
@@ -89,8 +76,7 @@ function failureText(facts: ExplanationFacts, label: string): string {
   }
 }
 
-export const mockExplanationAdapter: ExplanationAdapter = {
-  explain(facts: ExplanationFacts): ExplanationResult {
+export function explainBooking(facts: ExplanationFacts): ExplanationResult {
     if (!isExplanationFacts(facts)) {
       return { ok: false, error: 'Explanation request was malformed.' };
     }
@@ -108,5 +94,4 @@ export const mockExplanationAdapter: ExplanationAdapter = {
       };
     }
     return { ok: true, text: failureText(facts, label) };
-  },
-};
+}

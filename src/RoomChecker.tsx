@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Room, FilterOptions } from './types';
 import { filterRooms, validateBooking, formatTime, reconcileSelectedRoomId } from './validation';
-import { mockExplanationAdapter, reasonCodeFromValidation, ExplanationResult } from './explanation';
+import { explainBooking, reasonCodeFromValidation, ExplanationResult } from './explanation';
 import { Sparkles, X } from 'lucide-react';
 
 interface RoomCheckerProps {
@@ -75,7 +75,7 @@ export const RoomChecker: React.FC<RoomCheckerProps> = ({
       return;
     }
     try {
-      setExplanation(mockExplanationAdapter.explain({
+      setExplanation(explainBooking({
         roomLabel: room.name,
         startTime: startMin,
         endTime: endMin,
@@ -127,7 +127,7 @@ export const RoomChecker: React.FC<RoomCheckerProps> = ({
                 type="number"
                 step="30"
                 value={startMin}
-                onChange={e => setStartMin(parseInt(e.target.value) || 0)}
+                onChange={e => setStartMin(Math.min(1440, Math.max(0, parseInt(e.target.value) || 0)))}
                 className="w-full border rounded p-1 text-sm"
               />
             </div>
@@ -137,7 +137,7 @@ export const RoomChecker: React.FC<RoomCheckerProps> = ({
                 type="number"
                 step="30"
                 value={endMin}
-                onChange={e => setEndMin(parseInt(e.target.value) || 0)}
+                onChange={e => setEndMin(Math.min(1440, Math.max(0, parseInt(e.target.value) || 0)))}
                 className="w-full border rounded p-1 text-sm"
               />
             </div>
