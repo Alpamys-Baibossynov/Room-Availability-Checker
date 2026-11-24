@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Room, FilterOptions } from './types';
 import { filterRooms, validateBooking, formatTime, reconcileSelectedRoomId } from './validation';
+import { mockExplanationAdapter, ExplanationResult } from './explanation';
+import { Sparkles, X } from 'lucide-react';
 
 interface RoomCheckerProps {
   rooms: Room[];
@@ -23,6 +25,10 @@ export const RoomChecker: React.FC<RoomCheckerProps> = ({
   const [selectedRoomId, setSelectedRoomId] = useState<string>(rooms[0]?.id || '');
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [activeValidation, setActiveValidation] = useState<{ isValid: boolean; error?: string } | null>(null);
+  // Optional explanation feature: the mock adapter narrates the checker's verdict;
+  // the deterministic checker remains the sole authority on availability.
+  const [showExplanation, setShowExplanation] = useState<boolean>(false);
+  const [explanation, setExplanation] = useState<ExplanationResult | null>(null);
 
   // R6: derive the equipment facet list from actual room data
   const availableEquipmentList = Array.from(new Set(rooms.flatMap(room => room.equipment)));
@@ -56,6 +62,30 @@ export const RoomChecker: React.FC<RoomCheckerProps> = ({
 
     return () => clearTimeout(timer);
   }, [effectiveSelectedRoomId, startMin, endMin, attendees, selectedEquip, rooms, currentTime]);
+
+  // Regenerate the explanation whenever the verdict it describes changes.
+  useEffect(() => {
+    if (!showExplanation || !activeValidation) {
+      setExplanation(null);
+      return;
+    }
+    const room = rooms.find(r => r.id === effectiveSelectedRoomId);
+    if (!room) {
+      setExplanation(null);
+      return;
+    }
+    try {
+      setExplanation(mockExplanationAdapter.explain({
+        roomName: room.name,
+        start: startMin,
+        end: endMin,
+        currentTime,
+        validation: activeValidation,
+      }));
+    } catch {
+      setExplanation({ ok: false, error: 'Explanation is temporarily unavailable.' });
+    }
+  }, [showExplanation, activeValidation, effectiveSelectedRoomId, startMin, endMin, currentTime, rooms]);
 
   const toggleEquipment = (eq: string) => {
     setSelectedEquip(prev =>
@@ -195,6 +225,38 @@ export const RoomChecker: React.FC<RoomCheckerProps> = ({
                   <span>Unavailable: {activeValidation?.error}</span>
                 </div>
               )}
+
+              {/* Optional explanation panel (mock adapter; checker stays authoritative) */}
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowExplanation(prev => !prev)}
+                  aria-expanded={showExplanation}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 border border-gray-200 hover:border-gray-300 rounded px-2 py-1 transition-colors"
+                >
+                  <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+                  {showExplanation ? 'Hide explanation' : 'Explain this result'}
+                </button>
+                {showExplanation && (
+                  <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded text-sm text-gray-700 relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowExplanation(false)}
+                      aria-label="Close explanation"
+                      className="absolute top-1.5 right-1.5 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-3.5 h-3.5" aria-hidden="true" />
+                    </button>
+                    {explanation === null ? (
+                      <span className="text-gray-400">Generating explanation...</span>
+                    ) : explanation.ok ? (
+                      <span>{explanation.text}</span>
+                    ) : (
+                      <span className="text-gray-500">{explanation.error}</span>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

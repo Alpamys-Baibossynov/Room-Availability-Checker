@@ -1,5 +1,16 @@
 import { Room, ValidationResult, FilterOptions } from './types';
 
+// Canonical rule failure messages, exported so other modules (e.g. the
+// explanation adapter) can key off verdicts without duplicating strings.
+export const VALIDATION_ERRORS = {
+  intervalBounds: 'Interval bounds must satisfy 0 <= start < end <= 1440.',
+  futureStart: 'Start time must be strictly after the current demo clock.',
+  maxDuration: 'Booking duration must not exceed 120 minutes.',
+  blockedRoom: 'Selected room is programmatically blocked from booking.',
+} as const;
+
+export const BOOKING_CONFLICT_PREFIX = 'Conflict with existing booking';
+
 interface ValidationContext {
   room: Room;
   candidateStart: number;
@@ -13,7 +24,7 @@ type ValidationRule = (ctx: ValidationContext) => ValidationResult | null;
 // AC1 (bounds): 0 <= start < end <= 1440
 const intervalBoundsRule: ValidationRule = ({ candidateStart, candidateEnd }) => {
   if (candidateStart < 0 || candidateEnd > 1440 || candidateStart >= candidateEnd) {
-    return { isValid: false, error: 'Interval bounds must satisfy 0 <= start < end <= 1440.' };
+    return { isValid: false, error: VALIDATION_ERRORS.intervalBounds };
   }
   return null;
 };
@@ -21,7 +32,7 @@ const intervalBoundsRule: ValidationRule = ({ candidateStart, candidateEnd }) =>
 // AC1 (clock): start must be strictly after the current demo time
 const futureStartRule: ValidationRule = ({ candidateStart, currentTime }) => {
   if (candidateStart <= currentTime) {
-    return { isValid: false, error: 'Start time must be strictly after the current demo clock.' };
+    return { isValid: false, error: VALIDATION_ERRORS.futureStart };
   }
   return null;
 };
@@ -29,7 +40,7 @@ const futureStartRule: ValidationRule = ({ candidateStart, currentTime }) => {
 // AC2: maximum booking duration of 120 minutes
 const maxDurationRule: ValidationRule = ({ candidateStart, candidateEnd }) => {
   if (candidateEnd - candidateStart > 120) {
-    return { isValid: false, error: 'Booking duration must not exceed 120 minutes.' };
+    return { isValid: false, error: VALIDATION_ERRORS.maxDuration };
   }
   return null;
 };
@@ -37,7 +48,7 @@ const maxDurationRule: ValidationRule = ({ candidateStart, candidateEnd }) => {
 // AC3: blocked rooms can never be booked
 const blockedRoomRule: ValidationRule = ({ room }) => {
   if (room.isBlocked) {
-    return { isValid: false, error: 'Selected room is programmatically blocked from booking.' };
+    return { isValid: false, error: VALIDATION_ERRORS.blockedRoom };
   }
   return null;
 };
@@ -49,7 +60,7 @@ const bookingConflictRule: ValidationRule = ({ room, candidateStart, candidateEn
     if (candidateStart < b.end && candidateEnd > b.start) {
       return {
         isValid: false,
-        error: `Conflict with existing booking (${formatTime(b.start)} - ${formatTime(b.end)}).`,
+        error: `${BOOKING_CONFLICT_PREFIX} (${formatTime(b.start)} - ${formatTime(b.end)}).`,
       };
     }
   }
