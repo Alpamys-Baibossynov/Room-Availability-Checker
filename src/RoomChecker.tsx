@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Room, FilterOptions } from './types';
 import { filterRooms, validateBooking, formatTime, reconcileSelectedRoomId } from './validation';
-import { mockExplanationAdapter, ExplanationResult } from './explanation';
+import { mockExplanationAdapter, reasonCodeFromValidation, ExplanationResult } from './explanation';
 import { Sparkles, X } from 'lucide-react';
 
 interface RoomCheckerProps {
@@ -76,16 +76,16 @@ export const RoomChecker: React.FC<RoomCheckerProps> = ({
     }
     try {
       setExplanation(mockExplanationAdapter.explain({
-        roomName: room.name,
-        start: startMin,
-        end: endMin,
-        currentTime,
-        validation: activeValidation,
+        roomLabel: room.name,
+        startTime: startMin,
+        endTime: endMin,
+        isAvailable: activeValidation.isValid,
+        reasonCode: reasonCodeFromValidation(activeValidation),
       }));
     } catch {
       setExplanation({ ok: false, error: 'Explanation is temporarily unavailable.' });
     }
-  }, [showExplanation, activeValidation, effectiveSelectedRoomId, startMin, endMin, currentTime, rooms]);
+  }, [showExplanation, activeValidation, effectiveSelectedRoomId, startMin, endMin, rooms]);
 
   const toggleEquipment = (eq: string) => {
     setSelectedEquip(prev =>
